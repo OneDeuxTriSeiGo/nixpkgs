@@ -154,6 +154,13 @@ let
               "./Configure BSD-x86" + lib.optionalString stdenv.hostPlatform.isElf "-elf"
             else
               "./Configure BSD-generic${toString stdenv.hostPlatform.parsed.cpu.bits}"
+          else if stdenv.hostPlatform.isMsvc then
+            if stdenv.hostPlatform.isx86_64 then
+              "./Configure VC-WIN64A"
+            else if stdenv.hostPlatform.isAarch64 then
+              "./Configure VC-WIN64A"
+            else
+              throw "Not sure what MSVC configuration to use for ${stdenv.hostPlatform.config}"
           else if stdenv.hostPlatform.isMinGW then
             "./Configure mingw${
               lib.optionalString (stdenv.hostPlatform.parsed.cpu.bits != 32) (
