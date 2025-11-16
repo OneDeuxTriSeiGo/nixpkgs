@@ -268,14 +268,15 @@ in
 
   postFixup =
     let
-      libPath = lib.makeLibraryPath [
+      libPath = lib.makeLibraryPath ([
+        stdenv.cc.cc
+      ] ++ lib.optionals stdenv.hostPlatform.isLinux [
         libnotify
         pipewire
-        stdenv.cc.cc
         libsecret
         libpulseaudio
         speechd-minimal
-      ];
+      ]);
     in
     base.postFixup
     + ''

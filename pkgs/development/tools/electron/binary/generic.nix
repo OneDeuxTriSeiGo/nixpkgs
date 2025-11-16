@@ -48,9 +48,11 @@ let
     platforms = [
       "x86_64-darwin"
       "x86_64-linux"
+      "x86_64-windows"
       "armv7l-linux"
       "aarch64-linux"
       "aarch64-darwin"
+      "aarch64-windows"
     ];
     sourceProvenance = with sourceTypes; [ binaryNativeCode ];
     # https://www.electronjs.org/docs/latest/tutorial/electron-timelines
@@ -78,6 +80,8 @@ let
     aarch64-linux = "linux-arm64";
     x86_64-darwin = "darwin-x64";
     aarch64-darwin = "darwin-arm64";
+    x86_64-windows = "win32-x64";
+    aarch64-windows = "win32-arm64";
   };
 
   get = as: platform: as.${platform.system} or (throw "Unsupported system: ${platform.system}");
@@ -88,19 +92,22 @@ let
     passthru.headers = headersFetcher version hashes.headers;
   };
 
-  electronLibPath = lib.makeLibraryPath [
-    alsa-lib
-    at-spi2-atk
+  electronLibPath = lib.makeLibraryPath ([
     cairo
-    cups
-    dbus
     expat
     gdk-pixbuf
+    nss
+    nspr
+    pango
+    stdenv.cc.cc
+  ] ++ lib.optionals stdenv.hostPlatform.isLinux [
+    alsa-lib
+    at-spi2-atk
+    cups
+    dbus
     glib
     gtk3
     gtk4
-    nss
-    nspr
     xorg.libX11
     xorg.libxcb
     xorg.libXcomposite
@@ -109,9 +116,7 @@ let
     xorg.libXfixes
     xorg.libXrandr
     xorg.libxkbfile
-    pango
     pciutils
-    stdenv.cc.cc
     systemd
     libnotify
     pipewire
@@ -124,7 +129,7 @@ let
     libxshmfence
     libGL
     vulkan-loader
-  ];
+  ]);
 
   linux = finalAttrs: {
     buildInputs = [
@@ -198,10 +203,38 @@ let
 
     passthru.dist = finalAttrs.finalPackage + "/Applications";
   };
+
+  windows = finalAttrs: {
+    nativeBuildInputs = [
+      makeWrapper
+      unzip
+    ];
+
+    dontUnpack = true;
+    dontBuild = true;
+
+    installPhase = ''
+      mkdir -p $out/libexec/electron
+      unzip -d $out/libexec/electron $src
+      chmod u-x $out/libexec/electron/*.dll
+    '';
+
+    preFixup = ''
+      makeWrapper "$out/libexec/electron/electron" $out/bin/electron
+    '';
+    passthru.dist = finalAttrs.finalPackage + "/Applications";
+  };
 in
 stdenv.mkDerivation (
   finalAttrs:
   lib.recursiveUpdate (common stdenv.hostPlatform) (
-    (if stdenv.hostPlatform.isDarwin then darwin else linux) finalAttrs
+    (
+      if stdenv.hostPlatform.isDarwin then
+        darwin
+      else if stdenv.hostPlatform.isWindows then
+        windows
+      else
+        linux
+    ) finalAttrs
   )
 )

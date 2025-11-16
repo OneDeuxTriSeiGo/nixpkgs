@@ -34,9 +34,11 @@ let
     platforms = [
       "x86_64-darwin"
       "x86_64-linux"
+      "x86_64-windows"
       "armv7l-linux"
       "aarch64-linux"
       "aarch64-darwin"
+      "aarch64-windows"
     ];
     mainProgram = "chromedriver";
   };
@@ -54,6 +56,8 @@ let
     armv7l-linux = "linux-armv7l";
     x86_64-darwin = "darwin-x64";
     aarch64-darwin = "darwin-arm64";
+    x86_64-windows = "win32-x64";
+    aarch64-windows = "win32-arm64";
   };
 
   get = as: platform: as.${platform.system} or (throw "Unsupported system: ${platform.system}");
