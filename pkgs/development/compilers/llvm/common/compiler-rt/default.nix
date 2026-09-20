@@ -150,6 +150,9 @@ stdenv.mkDerivation (finalAttrs: {
 
     # Work around clang’s trying to invoke unprefixed-ld on Darwin when `-target` is passed.
     NIX_CFLAGS_LINK = lib.optionalString (stdenv.hostPlatform.isDarwin) "--ld-path=${stdenv.cc.bintools}/bin/${stdenv.cc.targetPrefix}ld";
+  }
+  // lib.optionalAttrs (stdenv.targetPlatform.isWindows && stdenv.cc.bintools.isLLVM) {
+    RC = "${stdenv.cc.bintools}/bin/${stdenv.cc.targetPrefix}windres";
   };
 
   cmakeFlags = [
