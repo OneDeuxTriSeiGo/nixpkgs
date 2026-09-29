@@ -36,7 +36,13 @@ let
   );
   isMsvc = stdenv.hostPlatform.isWindows && useLLVM;
 
-  cxxabiName = "lib${if cxxabi == null then "cxxabi" else cxxabi.libName}";
+  cxxabiName =
+    if isMsvc then
+      "vcruntime"
+    else if cxxabi == null then
+      "libcxxabi"
+    else
+      "lib${cxxabi.libName}";
   runtimes = [ "libcxx" ] ++ lib.optional (cxxabi == null && !isMsvc) "libcxxabi";
 
   cxxabiCMakeFlags = [
@@ -56,12 +62,12 @@ let
   ];
 
   cxxCMakeFlags = [
-    (lib.cmakeFeature "LIBCXX_CXX_ABI" (if isMsvc then "none" else cxxabiName))
+    (lib.cmakeFeature "LIBCXX_CXX_ABI" cxxabiName)
     (lib.cmakeBool "LIBCXX_ENABLE_SHARED" enableShared)
     # https://github.com/llvm/llvm-project/issues/55245
     (lib.cmakeBool "LIBCXX_ENABLE_STATIC_ABI_LIBRARY" (stdenv.hostPlatform.isWindows && !isMsvc))
   ]
-  ++ lib.optionals (cxxabi == null) [
+  ++ lib.optionals (cxxabi == null && !isMsvc) [
     # Include libc++abi symbols within libc++.a for static linking libc++;
     # dynamic linking includes them through libc++.so being a linker script
     # which includes both shared objects.
@@ -69,6 +75,17 @@ let
   ]
   ++ lib.optionals (cxxabi != null) [
     (lib.cmakeFeature "LIBCXX_CXX_ABI_INCLUDE_PATHS" "${lib.getDev cxxabi}/include")
+  ]
+  ++ lib.optionals isMsvc [
+    (lib.cmakeOptionType "list" "LIBCXX_CXX_ABI_INCLUDE_PATHS" (
+      lib.concatStringsSep ";" [
+        "${windows.sdk}/crt/include"
+        "${windows.sdk}/sdk/include/ucrt"
+        "${windows.sdk}/sdk/include/um"
+        "${windows.sdk}/sdk/include/shared"
+      ]
+    ))
+    (lib.cmakeFeature "CMAKE_MSVC_RUNTIME_LIBRARY" "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
   ]
   ++ lib.optionals (stdenv.hostPlatform.isMusl || stdenv.hostPlatform.isWasi) [
     (lib.cmakeFeature "LIBCXX_HAS_MUSL_LIBC" "1")
@@ -194,6 +211,19 @@ stdenv.mkDerivation (finalAttrs: {
   postPatch = ''
     cd runtimes
   '';
+
+  env = {
+    NIX_CFLAGS_COMPILE = toString (
+      lib.optionals (useLLVM && stdenv.targetPlatform.isWindows) [
+        "-v"
+        "-H"
+        "-isystem ${windows.sdk}/crt/include"
+        "-isystem ${windows.sdk}/sdk/include/ucrt"
+        "-isystem ${windows.sdk}/sdk/include/um"
+        "-isystem ${windows.sdk}/sdk/include/shared"
+      ]
+    );
+  };
 
   # libc++.so is a linker script which expands to multiple libraries,
   # libc++.so.1 and libc++abi.so or the external cxxabi. ld-wrapper doesn't

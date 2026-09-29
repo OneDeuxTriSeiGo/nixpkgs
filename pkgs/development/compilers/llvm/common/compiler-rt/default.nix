@@ -157,9 +157,12 @@ stdenv.mkDerivation (finalAttrs: {
         "-Wno-error=implicit-function-declaration"
       ]
       ++ lib.optionals (useLLVM && stdenv.targetPlatform.isWindows) [
+        "-v"
+        "-H"
         "-isystem ${windows.sdk}/crt/include"
-        "-isystem ${windows.sdk}/sdk/include"
         "-isystem ${windows.sdk}/sdk/include/ucrt"
+        "-isystem ${windows.sdk}/sdk/include/um"
+        "-isystem ${windows.sdk}/sdk/include/shared"
       ]
     );
 
